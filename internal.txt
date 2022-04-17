@@ -1,0 +1,102 @@
+File Descriptor:
+----------------
+0-3   - Current Offset
+4-5   - DTA
+6-7   - EOF byte
+8     - Flags
+        1 - sector has been written to
+        2 - file is read only
+        4 - currently have last sector
+        8 - descriptor not in use
+9-12  - Dir Sector
+13-14   - Dir Offset
+15-18 - Current Sector
+
+rawread     - Read disk sector into DTA
+      R8:R7 - Sector Address
+
+rawwrite    - Write DTA to disk sector
+      R8:R7 - Sector Address
+
+seccheck:   - Check if specified setor is in DTA
+      R8:R7 - Sector Address
+      Returns: DF=1 if already loaded
+
+sectolmp    - Convert sector address to lump
+      R8:R7 - Sector Address
+      Returns: R7 - Lump number
+
+lmptoofs    - Convert lump to sector/offset
+         R7 - Lump number
+         Returns: R7 - Allocation sector number
+                  R8 - Allocation sector offset
+
+ofstolmp    - Convert sector/offset to lump
+      R8:R7 - Allocation Sector Number
+         RB - Allocation Offset
+      Returns: R8:R7 - Lump number
+
+getlmpval   - Get value stored at specified lump
+      R8:R7 - Lump number
+      Returns: R8:R7 - Value stored at lump
+
+getnxtlmp   - Get nuxt lump in chain
+      R8:R7 - Lump number
+      Returns: R8:R7 - Next Lump number
+                       =0 if input was last lump
+               DF=1  - new lump is last in chain
+
+incoff      - Increment offset in file descriptor
+         RD - lsb of offset in file descriptor
+      Returns: DF=0 - Increment successful
+               DF=1 - End of sector read/written
+
+chkeof      - Check if file offset is at eof
+         RD - lsb of offset in file descriptor
+      Returns: DF=1 - file is at EOF
+
+chkwrt      - Check to see if current sector needs to be written back to disk
+              Performs write if it is needed.
+         RD - lsb of offset in file descriptor
+    
+findlump    - Find an available lump
+      Returns: R8:R7 - Assigned lump number
+               DF=1  - There were no available lumps
+
+nextsct:    - Load the next sector of a file
+              This will write the current sector if needed
+         RD - lsb of offset in file descriptor
+       
+append:     - Append a lump to a file
+         RD - lsb of offset in fie descriptor
+      Returns: DF=1 - No space
+
+srchdir:    - Search a directory for an entry
+         RD - Directory descriptor
+         RA - Filename (asciiz)
+         RF - Buffer to write entry to
+      REturns: DF=1 - Entry not found
+               R8:R7 - Dir Sector
+                  R9 - Dir Offset
+
+fclose      - Implementation for close api function
+         RD - File descriptor
+
+fread       - Implementation for read api function
+         RD - File descriptor
+         RF - Buffer for read bytes
+         RC - Count of bytes to read
+     Returns: RC - Count of bytes actually read
+              DF=0 - No error
+              DF=1 - Error occured
+                     D = Error code
+
+fwrite      - Implementation for write api function
+         RD - File descriptor
+         RF - Buffer for bytes
+         RC - Count of bytes to write
+     Returns: RC - Count of bytes actually written
+              DF=0 - No error
+              DF=1 - Error occured
+                     D = Error code
+

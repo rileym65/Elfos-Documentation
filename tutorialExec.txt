@@ -1,0 +1,91 @@
+I took the simple hello world sample from the last tutorial and modified it
+so that you can get a straight executable.
+
+  Lets start with the source:
+
+-------------------------- Begin Code -------------------------------------
+include    bios.inc
+include    kernel.inc
+
+; ********************************************
+; **** This block is the execution header ****
+; ********************************************
+           org     1ffah
+           dw      2000h                ; Exec header, where program loads
+           dw      endrom-2000h         ; Length of program to load
+           dw      2000h                ; exec address
+; *************************
+; ***** End of header *****
+; *************************
+
+; **************************************
+; ***** And now the actual program *****
+; **************************************
+           br      start
+include    date.inc
+start:     sep     scall               ; display message
+           dw      f_inmsg
+           db      'Hello world!!!',10,13,0
+           lbr     o_wrmboot           ; return to Elf/OS
+
+endrom:    equ     $                   ; End of ROM marker
+-------------------------- End Code ---------------------------------------
+
+  The only difference is that instead of a full package header it contains
+only the lines that produce the executable header.  The important thing here
+is that the ORG address is 6 bytes below where our program actually is, so
+the program is meant to assemble and run at $2000, we ORG at $1FFA so that
+we can have the assembler automatically make the 6 byte execution header
+needed in the final file.
+
+  The result of assembling this is a file hello.prg:
+
+:1ffa 20 00 00 1d 20 00 30 06 0c 04 07 e4 d4 ff 66 48
+:200a 65 6c 6c 6f 20 77 6f 72 6c 64 21 21 21 0a 0d 00
+:201a c0 03 03
+*0000
+
+
+  I highlighted the executable header that the assembler built.  Open this
+file in any text editor and remove the '*0000' line, you do not want that
+one. The header is assembled from these lines:
+
+           dw      2000h                ; Exec header, where program loads
+           dw      endrom-2000h         ; Length of program to load
+           dw      2000h                ; exec address
+
+  99% of the time the first one and the third one will be 2000h, the start
+of user space, only under special circumstances would you really move it
+someplace else.  The middle one is just measuring the code length due to
+this line following the code:
+
+endrom:    equ     $                   ; End of ROM marker
+
+  So, those 4 lines are all that is necessary for any assembler to build the
+proper executable header, 3 before the code, and 1 after.
+
+  The next step is to convert the ASCII hex file into binary.  I have a tool
+'hextobin' that performs this process
+
+./hextobin hello
+
+  This produces a new file 'hello.bin', which is the binary equivalent of
+the hex file, this file is the file you send over XMODEM to your Elf/OS
+system.
+
+  Note, you can use the Makefile that I gave yesterday, but remove the lines
+following the rcasm line, those lines are specific for being able to make
+package ROMS, for executables you want the direct output from Rc/Asm.  So
+your makefile should look more like:
+
+PROJECT = hello
+
+$(PROJECT).prg: $(PROJECT).asm bios.inc
+        ../date.pl > date.inc
+        rcasm -l -v -x -d 1802 $(PROJECT)
+
+clean:
+        -rm $(PROJECT).prg
+
+
+

@@ -1,0 +1,217 @@
+Creating a simple "Hello World" program to be run by Elf/OS,
+in INSTALL package format:
+
+Source file, hello.asm:
+---------------------------------------------------------------------
+include    bios.inc
+include    kernel.inc
+
+; ***************************************************
+; ***** This block generates the package header *****
+; ***************************************************
+           org     8000h
+           lbr     0ff00h               ; Long branch for Pico/Elf
+           db      'hello',0            ; Program filename
+           dw      9000h                ; Where in Rom image to find program
+           dw      endrom+7000h         ; last address of image
+; *******************************************************
+; **** Next block is the execution header, this is   ****
+; **** part of the pakcage header and written to the ****
+; **** actual file when saved to disk                ****
+; *******************************************************
+           dw      2000h                ; Exec header, where program loads
+           dw      endrom-2000h         ; Lenght of program to load
+           dw      2000h                ; exec address
+           db      0
+; *********************************
+; ***** End of package header *****
+; *********************************
+
+; **************************************
+; ***** And now the actual program *****
+; **************************************
+           org     2000h               ; ORG'd where it is meant to run
+           br      start
+include    date.inc
+start:     sep     scall               ; display message
+           dw      f_inmsg
+           db      'Hello world!!!',10,13,0
+           lbr     o_wrmboot           ; return to Elf/OS
+
+endrom:    equ     $                   ; End of ROM marker
+---------------------------------------------------------------------
+
+
+The build is controlled by a Makefile:
+
+Makefile:------------------------------------------------------------
+PROJECT = hello
+
+$(PROJECT).prg: $(PROJECT).asm bios.inc
+        ./date.pl > date.inc
+        rcasm -l -v -x -d 1802 $(PROJECT) | tee $(PROJECT).lst
+        cat $(PROJECT).prg | sed -f adjust.sed > x.prg
+        rm $(PROJECT).prg
+        mv x.prg $(PROJECT).prg
+
+clean:
+        -rm $(PROJECT).prg
+---------------------------------------------------------------------
+
+The steps done by make:
+  First get the current date, this is done with a simple perl program:
+
+./date.pl > date.inc
+
+  The creates the date.inc that is included in the source so that VER
+will know when the program was assembled.
+
+  Next is the actual assembly:
+
+        rcasm -l -v -x -d 1802 $(PROJECT) | tee $(PROJECT).lst
+
+  This produces a file called 'hello.prg' that looks like:
+
+---------------------------------------------------------------------
+:8000 c0 ff 00 68 65 6c 6c 6f 00 90 00 90 1d 20 00 00
+:8010 1d 20 00 00
+:2000 30 06 0c 03 07 e4 d4 ff 66 48 65 6c 6c 6f 20 77
+:2010 6f 72 6c 64 21 21 21 0a 0d 00 c0 03 03
+---------------------------------------------------------------------
+
+The 8000 block is the package header, and ORG'd at the correct address for
+INSTALL to read the package.
+
+The lines starting with 2000 and up are the actual program bytes.
+
+
+This output file is piped through 'sed' to adjust the addresses of the
+program to be compatible with an INSTALL rom.  The command is:
+
+        cat $(PROJECT).prg | sed -f adjust.sed > x.prg
+
+Which produces an x.prg file that looks like:
+
+---------------------------------------------------------------------
+:8000 c0 ff 00 68 65 6c 6c 6f 00 90 00 90 1d 20 00 00
+:8010 1d 20 00 00
+:9000 30 06 0c 03 07 e4 d4 ff 66 48 65 6c 6c 6f 20 77
+:9010 6f 72 6c 64 21 21 21 0a 0d 00 c0 03 03
+---------------------------------------------------------------------
+
+The remaining lines in the Makefile just rename the file to hello.prg.
+
+  The next step is to convert it to intel hex, which I do with a perl
+program.  Using this command line:
+
+        cat hello.prg | ./tointel.pl > hello.hex
+
+
+  which produces a final Intel hex format file:
+
+---------------------------------------------------------------------
+:10000000c0ff0068656c6c6f009000901d200000C0
+:040010001d200000AF
+:1010000030060c0307e4d4ff6648656c6c6f2077EC
+:0D1010006f726c642121210a0d00c00303E2
+:00000001FF
+---------------------------------------------------------------------
+
+  which is suitable for burning using most eprom burners.
+
+
+
+Helpers programs and files used to build:
+
+date.pl:
+---------------------------------------------------------------------
+#!/usr/bin/perl -w
+
+use strict;
+
+my @time = localtime(time);
+$time[4] += 1;
+print "date:      db      $time[4],$time[3]\n";
+$time[5] += 1900;
+print "           dw      $time[5]\n";
+---------------------------------------------------------------------
+
+adjust.sed
+---------------------------------------------------------------------
+s/:2/:9/
+/^\*/d
+---------------------------------------------------------------------
+
+tointel.pl
+---------------------------------------------------------------------
+#!/usr/bin/perl -w
+
+use strict;
+
+my @values;
+my $count;
+my $hex;
+my $i;
+my $value;
+my $cksum;
+
+while (<>) {
+  chomp;
+s/^:8/:0/;
+s/^:9/:1/;
+s/^:a/:2/;
+s/^:A/:2/;
+s/^:b/:3/;
+s/^:B/:3/;
+s/^:c/:4/;
+s/^:C/:4/;
+s/^:d/:5/;
+s/^:D/:5/;
+s/^:e/:6/;
+s/^:E/:6/;
+s/^:f/:7/;
+s/^:F/:7/;
+  if (!/^ *$/) {
+    $cksum = 0;
+    @values = split (/  */);
+    $values[0] =~ s/://;
+    $count = @values;
+    $cksum += $count-1;
+    $value = hex($values[0]);
+    $cksum += ($value & 255);
+    $cksum += ($value >> 8);
+    $hex = sprintf("%02X",$count-1);
+    print ":$hex$values[0]00";
+    for ($i=1; $i<$count; $i++) {
+      printf "$values[$i]";
+      $value = hex($values[$i]);
+      $cksum += $value;
+      }
+    $cksum = $cksum % 256;
+    $cksum = (256 - $cksum) % 256;
+    $hex = sprintf("%02X",$cksum);
+    print "$hex\n";
+    }
+  }
+print ":00000001FF\n";
+---------------------------------------------------------------------
+
+Package file format:
+
+:8000 LBR   0FF00h                 LBR to wherever to boot process is
+
+Following is a series of content entries that follow this format:
+
+n bytes - ASCIIZ of filename
+2 bytes - Offset into ROM where executable starts
+2 bytes - Offset into ROM where executable ends
+2 bytes - Exec header, Load address
+2 bytes - Exec header, Number of bytes to load
+2 bytes - Exec header, Execution address
+
+If there are more entries, then this same entry format is repeated for
+remaining entries.  Last entry is followed by:
+
+1 byte  - 00 - Indicates end of package header
+
+

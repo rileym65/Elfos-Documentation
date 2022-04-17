@@ -1,0 +1,237 @@
+API Reference:
+--------------
+0300h  O_COLDBOOT - Performs os coldboot.  Reinitializes all memory pointers
+       Args:    None
+       Returns: None
+
+0303h  O_WRMBOOT  - Performs os warmboot.  no memory pointers are reset
+       Args:    None
+       Returns: None
+
+0306h  O_OPEN    - Open file
+       Args:  RF = Pointer to pathname
+              RD = Pointer to file descriptor, DTA must be pre-filled
+              R7 = Flags
+                   1  Create if file does not exist
+                   2  Truncate file on open
+                   4  Open for append (moves pointer to eof)
+                   8  Set executable flag
+                  16  Open for read only
+       Returns:  DF=0 - Success
+                 RD - File descriptor
+                 DF=1 - Error
+                    D - Error Code
+
+0312h  O_CLOSE   - Close file
+       Args:  RD = File descriptor
+       Returns:  DF=0 - Success
+                 DF=1 - Error
+                    D - Error Code
+
+030Ch  O_WRITE   - Write to file
+       Args:  RD = File descriptor
+              RF = Pointer to bytes to write
+              RC = Count of bytes to write
+       Returns:  RC = Count of bytes written
+                 DF=0 - Success
+                 DF=1 - Error
+                    D - Error Code
+
+0309h  O_READ    - Read from file
+       Args:  RD = File descriptor
+              RF = Pointer to buffer
+              RC = Count of bytes to read
+       Returns:  RC = Count of bytes read
+                 DF=0 - Success
+                 DF=1 - Error    
+                    D - Error Code
+
+030Fh  O_SEEK    - Change file position
+       Args:  R8 = High word of seek address
+              R7 = Low word of seek address
+              RD = File descriptor
+              RC = Seek from:
+                   0  Beginning of file
+                   1  From current position
+                   2  From end of file
+       Returns:  R8 = High word of current file pointer
+                 R7 = Low word of current file pointer
+                 DF=0 - Success
+                 DF=1 - Error
+                    D - Error Code
+
+031Bh  O_RENAME  - Rename a file
+       Args:  RF = Source filename
+              RC = Destination filename
+       Returns:  DF=0 - Success
+                 DF=1 - Error
+                    D - Error Code
+
+0318h  O_DELETE  - Delete a file
+       Args:  RF = Filename
+       Returns:  DF=0 - Success
+                 DF=1 - Error
+                    D - Error Code
+
+031Eh  O_EXEC    - Execute a program
+       Args:  RF = Command line
+       Returns:  DF=0 - Success
+                 DF=1 - Error
+                    D - Error Code
+
+0315h  O_OPENDIR - Open directory for reading
+       Args:  RF = Pathname
+       Returns:  RD - File descriptor
+                 DF=0 - Success
+                 DF=1 - Error
+                    D - Error Code
+
+0321h  O_MKDIR   - Make directory
+       Args:  RF = Pathname
+       Returns:  DF=0 - Success
+                 DF=1 - Error
+                    D - Error Code
+
+0324h  O_CHDIR   - Change/Show current directory
+       Args:  RF = Pathname or buffer to place current path
+       Returns:  DF=0 - Success
+                 DF=1 - Error
+                    D - Error Code
+
+0327h  O_RMDIR   - Remove directory (must be empty)
+       Args:  RF = Pathname
+       Returns:  DF=0 - Success
+                 DF=1 - Error
+                    D - Error Code
+
+032Ah  O_RDLUMP  - Read value from LAT table
+       Args:  RA = lump number
+       Returns: RA - value of lump
+
+032Dh  O_WRLUMP  - Write lump value into LAT table
+       Args:  RA - lump to write
+              RF - value to write
+       Returns: None
+
+0330h  O_TYPE - Type character to terminal
+       Args: D - Character to type
+             RE.1 - Baud constant
+       Returns: None
+
+0333h  O_MSG - Type message to terminal
+       Args: RF - pointer to ASCIIZ message
+             RE.1 - Baud constant
+       Returns: None
+
+0336h  O_READKEY - Read character from terminal
+       Args: RE.1 - Baud constant
+       Returns: D - Read character
+
+0339h  O_INPUT - Input string from terminal
+       Args: RF - Pointer to buffer
+             RE.1 - Baud constant
+       Returns: DF=0 - Input finished with <ENTER>
+                DF=1 - Input finished with <CTRL><C>
+
+033Ch  O_PRTSTAT - Get printer status
+       Args: None
+       Returns: D - printer status byte
+
+033Fh  O_PRINT - Print character on printer
+       Args: D - Character to print
+       Returns: None
+
+0342h  O_EXECBIN - Execute a program from default exec directory
+       Args:  RF = Command line
+       Returns:  DF=0 - Success
+                 DF=1 - Error
+                    D - Error Code
+
+0345h  O_SETDEF   - Change/Show current default exec directory
+       Args:     RF = Pathname or buffer to place current path
+       Returns:  DF=0 - Success
+                 DF=1 - Error
+                    D - Error Code
+
+034Bh  O_INMSG - Passthrough to F_INMSG.  See BIOS for details
+
+034Eh  O_GETDEV   - Passthrough to F_GETDEV.  See BIOS for details
+
+0351h  O_GETTOD   - Passthrough to F_GETTOD.  See BIOS for details
+
+0354h  O_SETTOD   - Passthrough to F_SETTOD.  See BIOS for details
+
+0357h  O_INPUTL   - Passthrough to F_INPUTL.  See BIOS for details
+
+035Ah  O_BOOT     - Passthrough to F_BOOT.  See BIOS for details
+
+035Dh  O_TTY      - Passthrough to F_TTY.  See BIOS for details
+
+0360h  O_SETBD    - Passthrough to F_SETBD.  See BIOS for details
+
+0363h  O_INITCALL - Passthrough to F_INITCALL.  See BIOS for details
+
+0366h  O_BRKTEST  - Passthrough to F_BRKTEST.  See BIOS for details
+
+0369h  O_DEVCTRL  - Reserved
+
+036Ch  O_ALLOC    - Allocate heap memory
+       Args:     RC = Amount of memory requested
+                 R7.0 = Flags (bits)
+                        0 - reserved
+                        1 - reserved
+                        2 - Permenent block
+                        3 - reserved
+                        4 - reserved
+                        5 - reserved
+                        6 - reserved
+                        7 - reserved
+                 R7.1 = Alignment (value)
+                        0 - No alignment
+                        1 - Even address
+                        3 - 4-byte boundary
+                        7 - 8-byte boundary
+                       15 - 16-byte boundary
+                       31 - 32-byte boundary
+                       63 - 64-byte boundary
+                      127 - 128-byte boundary
+                      255 - Page boundary
+       Returns:  RF - Address of memmory
+                 DF=0 - Success
+                 DF=1 - Fail
+
+036Fh  O_DEALLOC  - Deallocate heap memory
+       Args:     RF = Address of memory to free
+
+0372h  O_TERMCTRL - Reserved
+
+0375h  O_NBREAD   - Passthrough to F_NBREAD.  See BIOS for details
+
+0378h  O_MEMCTRL  - Reserved
+
+
+Useful Memory Locations:
+
+0400h  K_VER    - 3 bytes, Kernel version
+0403h  K_BUILD  - 2 bytes, Kernel build number
+0405h  K_BMONTH - 1 byte, Kernel build date Month
+0406h  K_BDAY   - 1 byte, Kernel build date Day
+0407h  K_BYEAR  - 2 bytes, Kernel build date Year
+0442h  K_HIMEM  - 2 bytes, Highest address of user space. depricated.
+0465h  K_LOWMEM - 2 bytes - Lowest memory heap can use
+0467h  K_RETVAL - 1 byte - D at last program end
+0468h  K_HEAP   - 2 bytes - Current bottom of heap
+0470h  K_CLKFREQ - 2 bytes - Clock frequency, not guaranteed to be set.
+
+Internal Hooks.  Note, these should not be used by general applications
+0444h  D_IDERESET - Passthrough to F_IDERESET.  See BIOS for details
+0447h  D_IDEREAD  - Passthrough to F_IDEREAD.  See BIOS for details
+044Ah  D_IDEWRITE - Passthrough to F_IDEWRITE.  See BIOS for details
+044Dh  D_REAPHEAP - Calls heap reaper to clean non-permanent heap blocks
+0450h  D_PROGEND  - Captures execution between O_WRMBOOT and command loop
+0453h  D_LMPSIZE  - Get lump size
+
+
+
+
+

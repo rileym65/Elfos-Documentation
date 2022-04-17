@@ -1,0 +1,505 @@
+                         Programming For Elf/OS
+                                   by
+                            Michael H. Riley
+
+  Ok, so you have Elf/OS up and running, played around with the tools that
+come with it, and maybe even played with some of the programming tools
+available for Elf/OS, but now want to write your own assembly language
+programs that can be run under Elf/OS.  This tutorial will go over a simple
+assembly language program that utilizes the Elf/OS API calls.
+
+  This tutorial will assume that you are using Rc/Aam and related tools.  If
+you are using a different assembler then you may need to make some 
+modifications to the procedures outlined here.  I will restrict the tools
+used in this tutorial to only Rc/Asm and its companion program, hextobin,
+although some of these procedures can be streamlines by using make or some
+other similar tool.
+
+  For this tutorial we will be building a program that opens a disk file
+and displays its contents, essentially our own version of the base 'type'
+tool.  During this tutorial I will be showing verious structures as well
+as assembly source code.  Source code that you type into your program will
+always be contained with ---- delimeters.  I will also be presenting the
+code in a top down manner, so every section of code will be put at the
+end of what you already have done.
+
+  Lets get started.  Since this is an Elf/OS program, we will start by
+including the defintion files for Elf/OS and the BIOS, use filename
+'mytype.asm':
+
+-------------------------- Begin Code ---------------------------------------
+include     bios.inc
+include     kernel.inc
+-------------------------- End Code -----------------------------------------
+
+  If you do not have copies of these include files, I have listed out their
+contents at the end of this document.
+
+  Next we need to instruct the assember in how to build the 6-byte 
+execution header required by Elf/OS executable files:
+
+-------------------------- Begin Code ---------------------------------------
+            org     01ffah          ; Program start minus 6 bytes
+            dw      02000h          ; Program load address
+            dw      endrom-2000h    ; Program size
+            dw      02000h          ; Program execution address
+-------------------------- End Code -----------------------------------------
+
+  The majority of Elf/OS programs you write will use this exact same block
+of code.  I will go over exactly what each of these lines is doing.
+
+  First the 'org 01ffah', In Elf/OS, user space begins at $2000, as such,
+unless there is an overriding need to move a program to some other location
+in memory, your programs will generally start at $2000.  We need to have the
+assembler produce the 6-byte execution header, so we ORG the program 6 bytes
+earlier, or 01ffah.
+
+  The first 'dw  02000h' line specifies the load address of our program.
+Since our program will start at $2000, we specify 02000h here.
+
+  The second line 'dw  endrom-2000h' specifies how many bytes that Elf/OS
+will load when executing your program.  We will look at 'endrom' later, but
+this simple calculation here will determine the size of your program and
+place it here
+
+  The third line 'dw  02000h' specifies the execution address, or the address
+that Elf/OS will transfer control to after program start.  Generally this 
+will be $2000 if your program is ORG'd at $2000, but if your start address
+is elsewhere in the program, then here is where you specify it.
+
+  Now that the execution header has been taken care of, lets make this
+program compatible with VER to read its assembly date:
+
+-------------------------- Begin Code ---------------------------------------
+            br      start           ; Jump past date code
+            db      12              ; Month
+            db      4               ; Day
+            dw      2020            ; Year
+-------------------------- End Code -----------------------------------------
+
+  The 'br  start' instruction allows us to just jump over the date data to
+actual start of the program.  VER expects this jump to be here before it
+reads the date from the file, so in essence VER will first read and discard
+the first 8 bytes (6-bytes execution header and the 2-byte branch) and then
+expects to find the date.
+
+  The date itself is listed as one byte for the month, one byte for the day
+and then 2 bytes, msb first, for the year.  In my own code I have a small
+program that gets the current system date and builds an include file for
+the date, and then I include that file here.  In this way anytime that I
+build a program the current date is automatically set into my program.  If
+you are intersted in doing this, take a look at the source code for my
+Elf/OS tools.
+
+  Now with all the housekeeping done, we can begin our actual program.  When
+Elf/OS executes a program there a few things that are guarnateed for us,
+first we know that R4 will be set for the BIOS SCALL and that R5 will be
+set for the BIOS SRET.  R2 will point to a valid stack.  The Elf/OS stack
+is limited in size, so if you will be using the stack for lots of data then
+your should define your own stack, we will not need to do that here, so 
+we will stick to using Elf/OS' stack.  The main program counter will be R3.
+All registers from R7 upwards, with the exception of RE.1, are available for
+your use.
+
+  The last register that has value for us upon program start is RA.  This
+register points to the remainder of the command line after the program to
+be executed.  If we read the byte pointed to by RA there are 2 possible
+things we could find, if it is 0, then there were no command line argumensts,
+otherwise there were and RA will point to the first byte following the 
+space that followed the filename.  For example, if the command line was
+'type abc.txt' then RA will be pointing at the 'a'.  It is important to
+realize that Elf/OS does not move past multiple spaces, so if you had
+typed 'type    abc.txt' then RA will be pointing at a space.
+
+  Ok, now to do some coding.  We know that when the program starts that
+RA will be pointing at the command line arguments and that is is possible
+for multiple spaces to be present before the actual first argument, so 
+lets start by moving past any spaces:
+
+-------------------------- Begin Code ---------------------------------------
+start:      lda     ra              ; Read byte from command line
+            smi     ' '             ; see if it is a space
+            bz      start           ; keep reading until no spaces
+            dec     ra              ; move back to non-space character
+-------------------------- End Code -----------------------------------------
+
+  Ok, now RA is pointing either at a 00 byte, or the first non-space
+character of the command line arguments.  So the next thing that we are
+going to do is find the end of the first command line argument, either
+where a 00-terminator is found, or a space separating the first argument
+from the second one.  In this tutorial we are only going to deal with
+the first argument, you can for bonus points expand this program to 
+process all command line arguments.
+
+  So, lets find the end of the first argument:
+
+-------------------------- Begin Code ---------------------------------------
+            ghi     ra              ; transfer first arg start to RF
+            phi     rf
+            glo     ra
+            plo     rf
+loop1:      lda     ra              ; get next byte from command line
+            smi     33              ; looking for space or less
+            bdf     loop1           ; keep looking if greater than space
+            dec     ra              ; point back to <=' ' character
+            ldi     0               ; write a terminator after the last
+            str     ra              ; byte of the argument
+-------------------------- End Code -----------------------------------------
+
+  We copied the argument address from RA to RF, since we will need that
+in RF when we open the file, we then use RA to keep looking at the command
+line.  We need to put a terminator at the end of the first argument since
+the o_open call expects RF to point to an ASCIIZ.
+
+  Now, if no command line arguments were given then the loop will bail
+right away since the <= space condition will still be met, so in the 
+end RF right now is either pointing to a valid argument, or 0, which
+means we can now test if an argument was given, and if not we need to
+print a usage message and exit:
+
+-------------------------- Begin Code ---------------------------------------
+            ldn     rf              ; get first byte of argument
+            lbnz    good            ; jump if an argument was given
+            sep     scall           ; no argument, so print usage message
+            dw      f_inmsg
+            db      'Usage: mytype filename',10,13,0
+            lbr     o_wrmboot       ; return to Elf/OS
+-------------------------- End Code -----------------------------------------
+
+  At this point we now have RF pointing at the first byte of the first
+argument, which hopefully the user typed the name of the file they want
+to type out!  We have also terminated the first argument so that we have
+a valid ASCIIZ of the filename to open, so we are ready to open the file.
+
+  Elf/OS requires a 19-byte FILDES, or File Descriptor, for all operations
+that work on files.  For the most part this FILDES must be zeroed out
+before opening the file that will be associated with the FILDES, except
+for one field, the DTA, or Disk Transfer Address.  I will explain more
+about the FILDES and DTA when we define the FILDES lower in the code, so
+for now, just know that we need to provide a valid FILDES/DTA for the
+open call.
+
+  Lets open the file:
+
+-------------------------- Begin Code ---------------------------------------
+good:       ldi     high fildes     ; point to FILDES
+            phi     rd
+            ldi     low fildes
+            plo     rd
+            ldi     0               ; flags for open command
+            plo     r7
+            sep     scall           ; attempt to open the file
+            dw      o_open
+-------------------------- End Code -----------------------------------------
+
+  Here we are setting up the registers needed by o_open, RD needs to point
+to that 19-byte FILDES, which will be setup later, R7.0 is set for the
+open flags, which for this open is nothing special.
+
+  Now we need to see if the open succeeded or not:
+
+-------------------------- Begin Code ---------------------------------------
+            lbnf    mainlp          ; jump if file was opened
+            sep     scall           ; otherwise display error
+            dw      f_inmsg
+            db      'File not found',10,13,0
+            lbr     o_wrmboot       ; return to Elf/OS
+-------------------------- End Code -----------------------------------------
+
+  Elf/OS sets the DF flag if any error occurs, so if DF is clear then
+the file was successfully opened and we can continue, otherwise we 
+indicate that the file was not found and exit
+
+  Now that the file is open we can do the main loop, first we read a block
+of bytes:
+
+-------------------------- Begin Code ---------------------------------------
+mainlp:     ldi     0               ; want to read 16 bytes
+            phi     rc
+            ldi     16
+            plo     rc
+            ldi     high buffer     ; point to the input buffer
+            phi     rf
+            ldi     low buffer
+            plo     rf
+            sep     scall           ; Call Elf/OS to read the block
+            dw      o_read 
+            lbdf    done            ; if there was a read error, we are done
+            glo     rc              ; get number of bytes read
+            lbz     done            ; done if no bytes were read
+-------------------------- End Code -----------------------------------------
+
+  At this point we have hopefully read some bytes from the file.  If DF is
+set then a read error occured and we will just finish up, we will also 
+finish up if RC indicates that we did not read any bytes
+
+  Now we can just loop over the bytes and output them:
+
+-------------------------- Begin Code ---------------------------------------
+            ldi     high buffer     ; point to the input buffer
+            phi     rf
+            ldi     low buffer
+            plo     rf
+linelp:     lda     rf              ; get next byte
+            sep     scall           ; and display it
+            dw      f_type
+            dec     rc              ; decrement bytes read count
+            glo     rc              ; get the counter
+            lbnz    linelp          ; keep displaying if there are more
+            lbr     mainlp          ; otherwise loop back and read more
+-------------------------- End Code -----------------------------------------
+
+  Almost done the code, at this point we opened the file, read bytes, displayed
+them, now all we have to do is clean up once the file read is complete:
+
+-------------------------- Begin Code ---------------------------------------
+done:       sep     scall           ; call Elf/OS to close the file
+            dw      o_close
+            lbr     o_wrmboot       ; and then return to Elf/OS
+-------------------------- End Code -----------------------------------------
+
+  Now the code is all complete, but we did reference some data that we now
+need to define, we will start with the FILDES:
+
+-------------------------- Begin Code ---------------------------------------
+fildes:     db      0,0,0,0         ; Current file offset
+            dw      dta             ; Address of dta
+            db      0,0             ; File EOF
+            db      0               ; File flags
+            db      0,0,0,0         ; DIRENT sector
+            db      0,0             ; DIR sector offset
+            db      0,0,0,0         ; Currently loaded sector number
+-------------------------- End Code -----------------------------------------
+
+  The FILDES is a very important structure for all file API calls.  Before
+calling open the flags field should be zero, and the DTA field needs to 
+contain the address of a 512-byte block to be used for the file's sector
+buffer.  By defining the FILDES within the executable's file, we can pre-fill
+the fields with what we need.  If you defined this structure outside of the
+executable boundaries then it would be up to you to verify that the DTA
+field contains a valid address to a reserved space and the flags must be
+set to 0.  So by defining it here, we are also setting all the initial values
+needed for the file.
+
+  The first field, 'current file offset' always contains the current file
+position after the file is opened.  You may read this at any time to find
+out where the file pointer is, but NEVER write to this, if you want to change
+the file pointer you must use the o_seek API call to do it, writing to this
+field, or any other field in the FILDES for that matter, will likely corrupt
+your filesystem.
+
+  Now we can provide an end to what will be within the executable image
+by adding this line:
+
+-------------------------- Begin Code ---------------------------------------
+endrom:     equ     $
+-------------------------- End Code -----------------------------------------
+
+  But we do still have two other data items to add, the buffer where the
+file bytes will be read into and the Disk Transfer Area for the file.  These
+are defined as follows:
+
+-------------------------- Begin Code ---------------------------------------
+buffer:     ds      20
+dta:        dw      512
+-------------------------- End Code -----------------------------------------
+
+  And that is it, the source code is complete.
+
+  Save your source file as mytype.asm, and then assemble it:
+
+      rcasm -l -v -x -d 1802 mytype
+
+  If it assembled without errors you will have a file called mytype.prg that
+should look like this:
+
+:1ffa 20 00 00 a3 20 00 30 06 0c 04 07 e4 4a ff 20 32
+:200a 06 2a 9a bf 8a af 4a ff 21 33 10 2a f8 00 5a 0f
+:201a ca 20 3c d4 ff 66 55 73 61 67 65 3a 20 6d 79 74
+:202a 79 70 65 20 66 69 6c 65 6e 61 6d 65 0a 0d 00 c0
+:203a 03 03 f8 20 bd f8 90 ad f8 00 a7 d4 03 06 cb 20
+:204a 62 d4 ff 66 46 69 6c 65 20 6e 6f 74 20 66 6f 75
+:205a 6e 64 0a 0d 00 c0 03 03 f8 00 bc f8 10 ac f8 20
+:206a bf f8 a3 af d4 03 09 c3 20 8a 8c c2 20 8a f8 20
+:207a bf f8 a3 af 4f d4 ff 03 2c 8c ca 20 7e c0 20 62
+:208a d4 03 12 c0 03 03 00 00 00 00 20 b7 00 00 00 00
+:209a 00 00 00 00 00 00 00 00 00 02 00
+*0000
+
+  Open this file in a text editor and remove the '*0000' line, this is not
+needed for an Elf/OS executable.
+
+  The last thing we need to do is convert this hex file into a binary one,
+The tool hextobin will do this, and is run like this:
+
+     ./hextobin mytype
+
+  This will give you a pure binary file called mytype.bin.  You can use
+XMODEM to copy this file over to your Elf/OS system, and you will have an
+executable ready to run.
+
+Full source:
+-------------------------- Begin Code ---------------------------------------
+include     bios.inc
+include     kernel.inc
+
+            org     01ffah          ; Program start minus 6 bytes
+            dw      02000h          ; Program load address
+            dw      endrom-2000h    ; Program size
+            dw      02000h          ; Program execution address
+
+            br      start           ; Jump past date code
+            db      12              ; Month
+            db      4               ; Day
+            dw      2020            ; Year
+start:      lda     ra              ; Read byte from command line
+            smi     ' '             ; see if it is a space
+            bz      start           ; keep reading until no spaces
+            dec     ra              ; move back to non-space character
+            ghi     ra              ; transfer first arg start to RF
+            phi     rf
+            glo     ra
+            plo     rf
+loop1:      lda     ra              ; get next byte from command line
+            smi     33              ; looking for space or less
+            bdf     loop1           ; keep looking if greater than space
+            dec     ra              ; point back to <=' ' character
+            ldi     0               ; write a terminator after the last
+            str     ra              ; byte of the argument
+            ldn     rf              ; get first byte of argument
+            lbnz    good            ; jump if an argument was given
+            sep     scall           ; no argument, so print usage message
+            dw      f_inmsg
+            db      'Usage: mytype filename',10,13,0
+            lbr     o_wrmboot       ; return to Elf/OS
+good:       ldi     high fildes     ; point to FILDES
+            phi     rd
+            ldi     low fildes
+            plo     rd
+            ldi     0               ; flags for open command
+            plo     r7
+            sep     scall           ; attempt to open the file
+            dw      o_open
+            lbnf    mainlp          ; jump if file was opened
+            sep     scall           ; otherwise display error
+            dw      f_inmsg
+            db      'File not found',10,13,0
+            lbr     o_wrmboot       ; return to Elf/OS
+mainlp:     ldi     0               ; want to read 16 bytes
+            phi     rc
+            ldi     16
+            plo     rc
+            ldi     high buffer     ; point to the input buffer
+            phi     rf
+            ldi     low buffer
+            plo     rf
+            sep     scall           ; Call Elf/OS to read the block
+            dw      o_read 
+            lbdf    done            ; if there was a read error, we are done
+            glo     rc              ; get number of bytes read
+            lbz     done            ; done if no bytes were read
+            ldi     high buffer     ; point to the input buffer
+            phi     rf
+            ldi     low buffer
+            plo     rf
+linelp:     lda     rf              ; get next byte
+            sep     scall           ; and display it
+            dw      f_type
+            dec     rc              ; decrement bytes read count
+            glo     rc              ; get the counter
+            lbnz    linelp          ; keep displaying if there are more
+            lbr     mainlp          ; otherwise loop back and read more
+done:       sep     scall           ; call Elf/OS to close the file
+            dw      o_close
+            lbr     o_wrmboot       ; and then return to Elf/OS
+
+fildes:     db      0,0,0,0         ; Current file offset
+            dw      dta             ; Address of dta
+            db      0,0             ; File EOF
+            db      0               ; File flags
+            db      0,0,0,0         ; DIRENT sector
+            db      0,0             ; DIR sector offset
+            db      0,0,0,0         ; Currently loaded sector number
+
+endrom:     equ     $
+
+buffer:     ds      20
+dta:        dw      512
+-------------------------- End Code -----------------------------------------
+  
+bios.inc:
+-------------------------- Begin Code ---------------------------------------
+scall:      equ  r4
+sret:       equ  r5
+call:       equ  0ffe0h
+ret:        equ  0fff1h
+f_boot:     equ  0ff00h
+f_type:     equ  0ff03h
+f_read:     equ  0ff06h
+f_msg:      equ  0ff09h
+f_typex:    equ  0ff0ch
+f_input:    equ  0ff0fh
+f_strcmp:   equ  0ff12h
+f_ltrim:    equ  0ff15h
+f_strcpy:   equ  0ff18h
+f_memcpy:   equ  0ff1bh
+f_wrtsec:   equ  0ff1eh
+f_rdsec:    equ  0ff21h
+f_seek0:    equ  0ff24h
+f_seek:     equ  0ff27h
+f_drive:    equ  0ff2ah
+f_setbd:    equ  0ff2dh
+f_mul16:    equ  0ff30h
+f_div16:    equ  0ff33h
+f_idereset: equ  0ff36h
+f_idewrite: equ  0ff39h
+f_ideread:  equ  0ff3ch
+f_initcall: equ  0ff3fh
+f_bootide:  equ  0ff42h
+f_hexin:    equ  0ff45h
+f_hexout2:  equ  0ff48h
+f_hexout4:  equ  0ff4bh
+f_tty:      equ  0ff4eh
+f_mover:    equ  0ff51h
+f_minimon:  equ  0ff54h
+f_freemem:  equ  0ff57h
+F_isnum:    equ  0ff5ah
+f_atoi:     equ  0ff5dh
+f_uintout:  equ  0ff60h
+f_intout:   equ  0ff63h
+f_inmsg:    equ  0ff66h
+f_inputl:   equ  0ff69h
+f_findtkn:  equ  0ff6fh
+f_isalpha:  equ  0ff72h
+f_ishex:    equ  0ff75h
+f_isalnum:  equ  0ff78h
+f_idnum:    equ  0ff7bh
+f_isterm:   equ  0ff7eh
+f_getdev:   equ  0ff81h
+-------------------------- End Code -----------------------------------------
+
+
+kernel.inc:
+-------------------------- Begin Code ---------------------------------------
+o_cldboot: equ     0300h
+o_wrmboot: equ     0303h
+o_open:    equ     0306h
+o_read:    equ     0309h
+o_write:   equ     030ch
+o_seek:    equ     030fh
+o_close:   equ     0312h
+o_opendir: equ     0315h
+o_delete:  equ     0318h
+o_rename:  equ     031bh
+o_exec:    equ     031eh
+o_mkdir:   equ     0321h
+o_chdir:   equ     0324h
+o_rmdir:   equ     0327h
+o_rdlump:  equ     032Ah
+o_wrlump:  equ     032Dh
+o_type:    equ     0330h
+o_msg:     equ     0333h
+o_readkey: equ     0336h
+o_input:   equ     0339h
+-------------------------- End Code -----------------------------------------
+

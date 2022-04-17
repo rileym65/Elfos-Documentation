@@ -1,0 +1,376 @@
+Bios Functions
+Function  Name       Version       Notes
+0FF00h    f_boot       0.5         Cold boot from ide
+          Input:       None
+          Output:      None
+
+0FF03h    f_type       0.5         Type charcter to terminal
+          Input:       D - Character to type
+                       RE.1 - Baud Constant
+          Output:      None
+
+0FF06h    f_read       0.5         Read charcter from terminal
+          Input:       RE.1 - Baud Constant
+          Output:      D - Read character
+
+0FF09h    f_msg        0.5         Type message to terminal
+          Input:       RF - pointer to asciiz string
+                       RE.1 - Baud Constant
+          Output:      None
+
+0FF0Fh    f_input      0.5         Read string from terminal (fixed buffer length of 256)
+          Input:       RF - pointer to input buffer
+                       RE.1 - Baud Constant
+          Output:      DF=0 - Input finished with <ENTER>
+                       DF=1 - Input finished with <CTRL><C>
+
+0FF12h    f_strcmp     0.5         Compare strings
+          Input:       RF = pointer to string_1
+                       RD = pointer to string_2
+          Output:      string_1 = string_2 D=00
+                       string_1 < string_2 D=FF
+                       string_1 > string_2 D=01
+
+0FF15h    f_ltrim      0.5         Left trim string
+          Input:       RF = pointer to string
+          Output:      RF points to first non-whitespace character
+
+0FF18h    f_strcpy     0.5         String copy
+          Input:       RF = pointer to source string,0 terminated
+                       RD = pointer to destination string
+          Output:      None
+
+0FF1Bh    f_memcpy     0.5         Memory copy
+          Input:       RF = pointer to source string
+                       RD = pointer to destination string
+                       RC = count of bytes to copy
+          Output:      None
+
+0FF1Eh    f_wrtsec     0.5         Write sector to disk (current drive, track)
+                       Function removed in version 1.0
+          Input:       RF = pointer to data
+                       RC.0 = Sector to write
+          Output:      D - Result from FDC
+
+0FF21h    f_rdsec      0.5         Read sector from disk (current drive, track)
+                       Function removed in version 1.0
+          Input:       RF = pointer to buffer
+                       RC.0 = Sector to read
+          Output:      D - Result from FDC
+
+0FF24h    f_seek0      0.5         Seek to track 0 (current drive)
+                       Function removed in version 1.0
+          Input:       None
+          Output:      D - Result from FDC
+
+0FF27h    f_seek       0.5         Seek to track (current drive)
+                       Function removed in version 1.0
+          Input:       RC.0 = Track
+          Output:      D - Result from FDC
+
+0FF2Ah    f_drive      0.5         Select drive
+                       Function removed in version 1.0
+          Input:       RC.0 = Drive (1=drive 1,2=drive 2,4=drive 3,8=drive 4)
+          Output:      None
+
+0FF2Dh    f_setbd      0.5         Determine terminal baud rate
+          Input:       Needs <CR> or <LF> type at console
+                       <CR> - Use full duplex mode
+                       <LF> - Use half duplex mode
+          Output:      RE.1 = Baud Constant
+
+0FF30h    f_mul16      0.5         Multiply 16-bit by 16-bit
+          Input:       RF = First number
+                       RD = Second number
+          Output:      RB = Low word of 32-bit result
+                       RC = High word of 32-bit result
+
+0FF33h    f_div16      0.5         Divide 16-bit by 16-bit
+          Input:       RF = First number
+                       RD = Second number
+          Output:      RB = 16-bit result
+                       RF = 16-bit remainder
+
+0FF36h    f_idereset   0.5         Reset IDE subsystem
+
+0FF39h    f_idewrite   0.5         Write IDE Sector
+          Input:       RF = Pointer to disk transfer buffer
+                       R7.0 = value for Sector Start Register (LSB)
+                       R7.1 = value for Cylinder Lo Register
+                       R8.0 = value for Cylinder Hi Register (MSB)
+                       R8.1 = value for Head/Device Register (Drive select)
+                       R2 = Valid stack
+          Output:      D = Controller Status Register
+
+0FF3Ch    f_ideread    0.5         Read IDE Sector
+          Input:       RF = Pointer to disk transfer buffer
+                       R7.0 = value for Sector Start Register (LSB)
+                       R7.1 = value for Cylinder Lo Register
+                       R8.0 = value for Cylinder Hi Register (MSB)
+                       R8.1 = value for Head/Device Register (Drive select)
+                       R2 = must point to suitable stack
+          Output:      D = Controller Status Register
+
+0FF3Fh    f_initcall   0.6         Initiallize SCALL and SRET
+                       This routine is invoked with LBR not scall.
+          Input:       R6 - Return address
+          Output:      R4 - Call vector for SCALL
+                       R5 - Call vector for SRET
+
+0FF42h    f_bootide    0.6         Boot IDE device
+          Input:       None
+          Output:      None
+
+0FF45h    f_hexin      0.6         Convert ascii hex to binary
+          Input:       RF = Buffer pointer to characters string
+          Output:      RD - Binary representation of number
+                       RF - Pointing at first non-alphanumeric character
+
+0FF48h    f_hexout2    0.6         Convert binary byte to ascii string
+          Input:       RD.0 = Number to convert
+                       RF = Buffer pointer
+          Output:      RD - Consumed
+                       RF - Pointing to first byte after conversion
+
+0FF4Bh    f_hexout4    0.6         Convert binary word to ascii string
+          Input:       RD = Number to convert
+                       RF = Buffer pointer
+          Output:      RD - Consumed
+                       RF - Pointing to first byte after conversion
+
+0FF4Eh    f_tty        0.6         Type charcter to terminal, no translations
+          Input:       D - Character to type
+                       RE.1 - Baud Constant
+          Output:      None
+
+0FF51h    f_mover      0.7         Move program into low memory and execute
+                                   (Depricated)
+          Input:       RF – Pointer to program header
+          Output:      Does not return
+
+0FF54h    f_minimon    0.7         Jump to mini-monitor
+          Input:       none
+          Output:      None
+
+0FF57h    f_freemem    0.7         Get memory size
+          Input:       none
+          Output:      RF - Last writable address
+
+0FF5DH    f_atoi       0.7         Convert ASCII to integer
+          Input:       RF - Pointer to ascii string
+          Output:      RD - Converted number
+                       RF - First non-numeric character
+                       DF=1 - First characters was non-numeric
+
+0FF60h    f_uintout    0.7         Convert unsigned integer to ASCII
+          Input:       RD - Number to convert
+                       RF - Buffer to store ascii number
+          Output:      RF - Last position + 1
+
+0FF63h    f_intout     0.7         Convert signed integer to ASCII
+          Input:       RD - Number to convert
+                       RF - Buffer to store ascii number
+          Output:      RF - Last position + 1
+
+0FF66h    f_inmsg      0.9         Type inline message to terminal
+          Input:       Bytes following call are output
+                       RE.1 - Baud Constant
+          Output:      None
+
+0FF69h    f_inputl     0.9         Read string from terminal (variable buffer length)
+          Input:       RF - pointer to input buffer
+                       RC - Maximum allowed input characters
+                       RE.1 - Baud Constant
+          Output:      DF=0 - Input finished with <ENTER>
+                       DF=1 - Input finished with <CTRL><C>
+
+0FF6Ch    f_brktest    0.9.1         Check for serial break
+          Input:       none
+          Output:      DF=0 - Break no asserted
+                       DF=1 - Break asserted
+
+0FF5Ah    f_isnum      1.0         Check for numeric character (0-9)
+          Input:       D - Character to check
+          Output:      DF=0 - Character is non-numeric
+                       DF=1 - Character is numeric
+
+0FF72h    f_isalpha    1.0         Check for alpha character (A-Z,a-z)
+          Input:       D - Character to check
+          Output:      DF=0 - Character is non-alpha
+                       DF=1 - Character is alpha
+
+0FF75h    f_ishex      1.0         Check for hex character (0-9,A-F,a-f)
+          Input:       D - Character to check
+          Output:      DF=0 - Character is non-hex
+                       DF=1 - Character is hex
+
+0FF78h    f_isalnum    1.0         Check for alphanumeric character (0-9,A-Z,a-z)
+          Input:       D - Character to check
+          Output:      DF=0 - Character is non-alphanumeric
+                       DF=1 - Character is alphanumeric
+
+0FF7Eh    f_isterm     1.0         Check for terminating character (any characer that is not f_alnum)
+          Input:       D - Character to check
+          Output:      DF=0 - Character is non-terminator
+                       DF=1 - Character is terminator
+
+0FF6Fh    f_findtkn    1.0         Find token within a token table
+          Input:       RF - Pointer to ascii symbol to search for
+                       R7 - Pointer to symbol table
+          Output:      RD - Entry number
+                       DF=0 - Entry was not found
+                       DF=1 - Entry is valid
+
+0FF7Bh    f_idnum      1.0         Identify symbol type
+          Input:       RF - Pointer to ascii symbol
+          Output:      D=0 - Symbol is a decimal number
+                       D=1 - Symbol is a hex number
+                       DF=0 - Symbol is a valid number
+                       DF=1 - Symbol is an invalid number
+
+0FF81h    f_getdev     1.0.4         Get supported deivces
+          Input:       None
+          Output:      RF - Supported device map
+                       Bit         Device
+                         0         IDE
+                         1         Floppy
+                         2         Bit-banged serial
+                         3         UART
+                         4         RTC
+                         5         NVR
+                         6         Contains $F800 vector table
+                         7         Contains $F000 vector table
+                         8         f_nbread supported
+                      9-15         reserved
+0FF84h    f_nbread     0.5         Non-blocking read charcter from terminal (optional)
+          Input:       RE.1 - Baud Constant
+          Output:      D - Read character
+
+
+Optional Bios Functions
+
+Note: These functions may not be available in all versions of the BIOS.
+      They are considered optional, but most modern BIOS implementations
+      support them.
+
+Function  Name        Version        Notes
+0F800h    f_bread      1.0.4         Read charcter from bit-banged serial port
+          Input:       RE.1 - Baud Constant
+          Output:      D - Read character
+
+0F803h    f_btype      1.0.4         Type charcter to bit-banged serial port
+          Input:       D - Character to type
+                       RE.1 - Baud Constant
+          Output:      None
+
+0F80Ch    f_btest      1.0.4         Check for serial break on bit-banged serial port
+          Input:       none
+          Output:      DF=0 - Break no asserted
+                       DF=1 - Break asserted
+
+0F809h    f_utype      1.0.4         Type charcter to UART serial port
+          Input:       D - Character to type
+                       RE.1 - Baud Constant
+          Output:      None
+
+0F80Ch    f_uread      1.0.4         Read charcter from UART serial port
+          Input:       RE.1 - Baud Constant
+          Output:      D - Read character
+
+0F80Fh    f_utest      1.0.10        Test if input available from UART serial port
+          Output:      DF=1 – Character is available
+
+0F812h    f_usetbd     1.0.4         Set communication parameters on UART serial port
+          Input:       D - Baud Constant
+                       Bit(s)         Value         Meaning
+                          2-0         0 0 0         300 Baud
+                                      0 0 1         1200 Baud
+                                      0 1 0         2400 Baud
+                                      0 1 1         4800 Baud
+                                      1 0 0         9600 Baud
+                                      1 0 1         19200 Baud
+                                      1 1 0         38400 Baud
+                                      1 1 1         76800 Baud
+                            3         Reserved
+                          5-4         0 0           5 bit words
+                                      0 1           6 bit words
+                                      1 0           7 bit words
+                                      1 1           8 bit words
+                            6         0             No parity
+                                      1             Parity enabled
+                            7         0             Odd parity
+                                      1             Even parity
+          Output:      DF=1 - UART not installed
+                       DF=0 - Success
+
+0F815h    f_gettod     1.0.4         Get Time Of Day
+          Input:       RF - Buffer to receive TOD information
+          Output:      DF=0 - Success
+                       DF=1 - Error
+                       D=0 - No RTC
+                       D=1 - Invalid Time
+
+0F818h    f_settod     1.0.4         Set Time Of Day
+          Input:       RF - Buffer to date/time data
+          Output:      DF=0 - Success
+                       DF=1 - No RTC
+
+0F81Bh    f_rdnvr      1.0.4         Read bytes from NVR
+          Input:       RF.0 - Relative address to begin reading
+                       RD - Destination for bytes
+                       RC.0 - Count of bytes to read
+          Output:      DF=0 - Success
+                       DF=1 - No NVR
+
+0F81Eh    f_wrnvr      1.0.4         Write bytes to NVR
+          Input:       RF.0 - Relative address to begin reading
+                       RD - Source for bytes
+                       RC.0 - Count of bytes to read
+          Output:      DF=0 - Success
+                       DF=1 - No NVR
+
+0F821h    f_idesize    1.0.4         Get size in MB of IDE hard disk
+          Input:       RD.0=0 - Master drive
+                       RD.0-1 - Slave drive
+          Output:      RF - Size of drive in MB, 0=no drive
+
+0F824h    f_ideid      1.0.4         Get IDE identification data
+          Input:       RF - Pointer to buffer to receive data
+                       RD.0=0 - Master drive
+                       RD.0-1 - Slave drive
+          Output:      DF=0 - Success
+                       DF=1 - Drive error
+
+0F827h    f_dttoas     1.0.4         Convert date to ASCII
+          Input:       RD - Pointer to binary date
+                       RF - Pointer to destination buffer
+          Output:      RD - Points to time portion of binary date
+
+0F82Ah    f_tmtoas     1.0.4         Convert time to ASCII
+          Input:       RD - Pointer to binary time
+                       RF - Pointer to destination buffer
+          Output:      None
+
+0F827h    f_dttoas     1.0.4         Convert date to ASCII
+          Input:       RD - Pointer to binary date
+                       RF - Pointer to destination buffer
+          Output:      RD - Points to time portion of binary date
+
+0F82Dh    f_rtctest    1.0.4         Test for existance of RTC
+          Input:       None
+          Output:      DF=1 RTC is present
+                       DF=0 RTC is not present
+                       D - Size of NVR in RTC
+
+0F830h    f_astodt     1.0.4         Convert ASCII date to binary
+          Input:       RF - Pointer to ASCII date
+                       RD - Pointer to destination buffer
+          Output:      None
+
+0F833h    f_astotm     1.0.4         Convert ASCII time to binary
+          Input:       RF - Pointer to ASCII time
+                       RD - Pointer to destination buffer
+          Output:      None
+
+0F836h    f_nvr_chk    1.0.10        Compute checksum for NVR RAM
+          Output:      RF – Checksum

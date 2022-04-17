@@ -1,0 +1,134 @@
+File Descriptor:
+----------------
+0-3   - Current Offset
+4-5   - DTA
+6-7   - EOF byte
+8     - Flags
+        1 - sector has been written to
+        2 - file is read only
+        4 - currently have last sector
+        8 - descriptor not in use
+      128 - 2nd drive
+9-12  - Dir Sector
+13-14   - Dir Offset
+15-18 - Current Sector
+
+
+Hard Disk: (LBA mode)
+----------
+Sector 0            Boot Sector
+Sector 1-16         OS Kernel Image
+Sector 17-..AS      Allocation table
+Sector AS+1         Master Directory
+Sector AS+2 - end   Data Sectors
+
+OS boot code is in first 256 bytes of sector 0
+Sector 0 contains disk information:
+256-259  - Total Sectors
+260      - Filesystem type
+261-262  - Master Directory pointer
+263-264  - Reserved
+265-266  - Allocation unit size (in sectors)
+267-270  - Number of allocation units
+300-331  - Master dir direntry
+
+Floppy:
+-------
+sector
+track 0:
+      0    Boot
+     1-17  allocation table
+
+Track 1 : master directory
+
+Track 2-3 : os kernel on system disks otherwise data
+
+
+
+Allocation table:
+2 bytes per sector - msb first
+  0000 = free sector
+  FFFF = Unavailable sector
+  FEFE = Allocated end of chain
+  all others are pointer to next sector entry
+Sectors are stored in linear mode, 18 sectors per track (even SD)
+Track 0 - Sectors 0-17
+Track 1 - Sectors 18-35
+Track 2 - Sectors 36-53
+  ...
+Track 20 - Sectors 360-377
+  ...
+Track 40 - 720-737
+  ...
+Track 80 - 1440-1457
+
+Directory structure:
+--------------------
+byte   description
+0-3    First AU, 0=free entry
+4-5    eof byte
+6      flags1
+       0 - file is a subdir
+       1 - file is executable
+       2 - file is write protected
+       3 - file is hidden
+       4 - file has been written to
+8      month
+9      day
+10     year
+7      flags2
+11-31  filename
+
+---------------------------------------------------------------------
+speed     inst/sec     usec/inst
+1.7mhz                    9.4us
+2mhz      125,000         8us
+3mhz      187,500         5.3us
+4mhz      250,000         4us
+5mhz      312,500         3.2us
+
+
+1 disk revolution 200,000us
+
+
+Density    Bytes      usec/byte
+   S       3128         63.9
+   D       6256         31.9
+
+Without error out:
+------------------
+         sex     r6
+wrtlp:   b2      $ 
+         out     3 
+         glo     r6
+         bnz     wrtlp
+
+         sex     r6
+rdlp:    b2      $
+         inp     3
+         irx
+         glo     r6
+         bnz     rdlp
+
+
+With error out:
+---------------
+wrtgo:    ldi   100
+wrtlp:    bn2   wrready
+          smi   1
+          bnz   wrtlp
+          br    error
+wrready:  out   3
+          glo   r6
+          bnz   wrtgo
+
+rdgo:     ldi   100
+rdlp:     bn2   rdeady
+          smi   1
+          bnz   rdlp
+          br    error
+rdeady:   inp   3
+          irx
+          glo   r6
+          bnz   rdgo
+
